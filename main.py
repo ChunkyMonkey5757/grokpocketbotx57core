@@ -45,6 +45,7 @@ async def feedback_command(update, context, outcome: bool):
     await engine.process_feedback(signal_id, outcome)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Feedback recorded: {'win' if outcome else 'loss'} for {signal_id}")
 
+print(f"TELEGRAM_BOT_TOKEN in main.py: {TELEGRAM_BOT_TOKEN}")
 app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 app.add_handler(CommandHandler("signal", signal_command))
 app.add_handler(CommandHandler("won", lambda u, c: feedback_command(u, c, True)))
