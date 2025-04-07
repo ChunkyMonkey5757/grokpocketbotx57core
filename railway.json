@@ -1,0 +1,14 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "deploy": {
+    "startCommand": "python main.py",
+    "restartPolicy": {
+      "type": "onFailure",
+      "maxRetries": 10
+    }
+  },
+  "type": "worker",
+  "networking": {
+    "public": false
+  }
+}
