@@ -1,2 +1,4 @@
-TELEGRAM_BOT_TOKEN = os.getenv("7550556113:AAEA1dThM6ufymPtQgIGW9Pj7CjUvB-Cyis")
+import os
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 print(f"Loaded TELEGRAM_BOT_TOKEN in config.py: {TELEGRAM_BOT_TOKEN}")
