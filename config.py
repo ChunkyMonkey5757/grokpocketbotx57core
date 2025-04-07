@@ -1,4 +1,1 @@
-import os
-
 TELEGRAM_BOT_TOKEN = os.getenv("7550556113:AAEA1dThM6ufymPtQgIGW9Pj7CjUvB-Cyis")
-print(f"Loaded TELEGRAM_BOT_TOKEN: {TELEGRAM_BOT_TOKEN}")
