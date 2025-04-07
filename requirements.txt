@@ -1,0 +1,7 @@
+pandas==2.2.2
+numpy==1.26.4
+python-telegram-bot==20.6
+ccxt==4.2.85
+pandas_ta==0.3.14b0
+aiohttp==3.9.5
+python-dotenv==1.0.1
