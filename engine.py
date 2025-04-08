@@ -1,3 +1,4 @@
+# engine.py
 import asyncio
 from datetime import datetime
 import pandas as pd
@@ -6,9 +7,9 @@ from typing import Dict, Optional
 import logging
 import random
 
-from rsi import RSIStrategy
-from macd import MACDStrategy
-from bollinger import BollingerBandsStrategy
+import rsi  # Changed from relative to absolute import
+import macd  # Changed from relative to absolute import
+import bollinger  # Changed from relative to absolute import
 
 logger = logging.getLogger('pocketbotx57.signal_engine')
 
@@ -16,13 +17,13 @@ class SignalEngine:
     def __init__(self, config: Dict = None):
         self.config = config or {}
         self.indicators = {
-            'rsi': RSIStrategy(),
-            'macd': MACDStrategy(),
-            'bollinger': BollingerBandsStrategy()
+            'rsi': rsi.RSIStrategy(),
+            'macd': macd.MACDStrategy(),
+            'bollinger': bollinger.BollingerBandsStrategy()
         }
         self.weights = {'rsi': 0.15, 'macd': 0.20, 'bollinger': 0.15}
-        self.min_confidence = 0.5  # Changed from 0.85 to 0.5
-        self.cooldown_period = self.config.get('cooldown_period', 30)  # Changed from 120 to 30
+        self.min_confidence = 0.5
+        self.cooldown_period = self.config.get('cooldown_period', 30)
         self.last_signal_time = {}
         self.signal_history = []
         self.learning_rate = 0.05
