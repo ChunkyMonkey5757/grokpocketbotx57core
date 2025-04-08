@@ -2,7 +2,7 @@ import sys
 import os
 import asyncio
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from engine import SIGNALENGINE
+from engine import SignalEngine  # Changed from SIGNALENGINE to SignalEngine
 from config import TELEGRAM_BOT_TOKEN
 import ccxt.async_support as ccxt
 import pandas as pd
@@ -24,7 +24,7 @@ async def fetch_data(asset="BTC/USD"):
     logger.error("All exchanges failed to fetch data")
     return None
 
-engine = SIGNALENGINE()
+engine = SignalEngine()  # Changed from SIGNALENGINE to SignalEngine
 
 # Debug handler to log all incoming updates
 async def debug_update(update, context):
