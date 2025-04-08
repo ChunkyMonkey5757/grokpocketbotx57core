@@ -4,12 +4,13 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Optional
 import logging
+import random
 
 from rsi import RSIStrategy
 from macd import MACDStrategy
 from bollinger import BollingerBandsStrategy
 
-logger = logging.getLogger("pocketbotx57.signal_engine")
+logger = logging.getLogger('pocketbotx57.signal_engine')
 
 class SignalEngine:
     def __init__(self, config: Dict = None):
@@ -20,8 +21,8 @@ class SignalEngine:
             'bollinger': BollingerBandsStrategy()
         }
         self.weights = {'rsi': 0.15, 'macd': 0.20, 'bollinger': 0.15}
-        self.min_confidence = self.config.get('min_confidence', 0.85)
-        self.cooldown_period = self.config.get('cooldown_period', 120)
+        self.min_confidence = 0.5  # Changed from 0.85 to 0.5
+        self.cooldown_period = self.config.get('cooldown_period', 30)  # Changed from 120 to 30
         self.last_signal_time = {}
         self.signal_history = []
         self.learning_rate = 0.05
@@ -38,9 +39,8 @@ class SignalEngine:
 
         signals = await self._generate_indicator_signals(asset, data)
         signal = self._combine_indicator_signals(signals)
-        
-        if signal and signal['confidence'] >= self.min_confidence:
-            signal['id'] = str(np.random.randint(10000, 99999))
+
+        if signal and signal['confidence'] > self.min_confidence and random.random() < signal['confidence']:
             signal['asset'] = asset
             signal['timestamp'] = datetime.now().isoformat()
             self.last_signal_time[asset] = current_time
@@ -51,7 +51,9 @@ class SignalEngine:
 
     async def _generate_indicator_signals(self, asset: str, data: pd.DataFrame) -> Dict:
         tasks = [self._run_indicator(name, ind, asset, data) for name, ind in self.indicators.items()]
-        return dict(await asyncio.gather(*tasks))
+        results = dict(await asyncio.gather(*tasks))
+        logger.info(f"Indicator signals for {asset}: {results}")
+        return results
 
     async def _run_indicator(self, name: str, indicator, asset: str, data: pd.DataFrame):
         try:
@@ -68,7 +70,7 @@ class SignalEngine:
 
         buy_score = sum(self.weights[k] * v['confidence'] for k, v in valid_signals.items() if v['action'] == 'BUY')
         sell_score = sum(self.weights[k] * v['confidence'] for k, v in valid_signals.items() if v['action'] == 'SELL')
-        
+
         if buy_score > sell_score:
             action, confidence = 'BUY', buy_score
         elif sell_score > buy_score:
@@ -79,7 +81,7 @@ class SignalEngine:
         return {
             'action': action,
             'confidence': confidence,
-            'duration': max([s.get('duration', 5) for s in valid_signals.values()]),
+            'duration': max(v.get('duration', 5) for v in valid_signals.values()),
             'indicators': {k: v['indicators'] for k, v in valid_signals.items()},
             'contributing_strategies': list(valid_signals.keys())
         }
@@ -92,24 +94,25 @@ class SignalEngine:
 
         signal['outcome'] = outcome
         for strategy in signal.get('contributing_strategies', []):
-            if outcome and signal['action'] == signals[strategy]['action']:
+            if outcome:
                 self.weights[strategy] = min(0.35, self.weights[strategy] + self.learning_rate)
-            elif not outcome:
+            else:
                 self.weights[strategy] = max(0.05, self.weights[strategy] - self.learning_rate)
-        
+
         total = sum(self.weights.values())
         for k in self.weights:
-            self.weights[k] /= total / 0.5
+            self.weights[k] = total / 0.5
+
         logger.info(f"Feedback processed for {signal_id}: {'win' if outcome else 'loss'}, weights: {self.weights}")
 
     def format_signal_message(self, signal: Dict, price: float) -> str:
         emoji = "🟢" if signal['action'] == 'BUY' else "🔴"
         return (
-            f"{emoji} *{signal['action']} Signal*\n"
-            f"Asset: {signal['asset']}\n"
-            f"Price: ${price:.2f}\n"
-            f"Confidence: {signal['confidence']:.1%}\n"
-            f"Duration: {signal['duration']}m\n"
-            f"Signal ID: {signal['id']}\n"
-            f"*TRADE NOW!*"
+            f"{emoji}\n"
+            f"**{signal['action']} Signal** at\n"
+            f"**Price: ${price:.2f}**\n"
+            f"**Confidence: {signal['confidence']:.1%}**\n"
+            f"**Duration: {signal['duration']}m**\n"
+            f"**Signal ID: {signal['id']}**\n"
+            f"**TRADE NOW!**"
         )
