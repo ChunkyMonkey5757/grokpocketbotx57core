@@ -15,7 +15,7 @@ async def fetch_data(asset="BTC/USD"):
     exchanges = [ccxt.kraken(), ccxt.binance()]
     for exchange in exchanges:
         try:
-            ohlcv = await exchange.fetch_ohlcv(asset, timeframe='1m', limit=100)  # Changed from 50 to 100
+            ohlcv = await exchange.fetch_ohlcv(asset, timeframe='5m', limit=100)  # Changed to 5m timeframe
             await exchange.close()
             return pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         except Exception as e:
@@ -26,15 +26,12 @@ async def fetch_data(asset="BTC/USD"):
 
 engine = SignalEngine()
 
-# Debug handler to log all incoming updates
 async def debug_update(update, context):
     logger.info(f"Received update: {update}")
 
-# Handler for /start command
 async def start_command(update, context):
     await context.bot.send_message(chat_id=update.effective_chat.id, text="Hello! I'm your trading bot. Use /signal to get a trading signal.")
 
-# Updated /signal command with additional logging
 async def signal_command(update, context):
     logger.info("Received /signal command")
     data = await fetch_data()
@@ -63,14 +60,12 @@ async def feedback_command(update, context, outcome: bool):
 print(f"TELEGRAM_BOT_TOKEN in main.py: {TELEGRAM_BOT_TOKEN}")
 app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
-# Add handlers
 app.add_handler(CommandHandler("start", start_command))
 app.add_handler(CommandHandler("signal", signal_command))
 app.add_handler(CommandHandler("won", lambda u, c: feedback_command(u, c, True)))
 app.add_handler(CommandHandler("lost", lambda u, c: feedback_command(u, c, False)))
 app.add_handler(MessageHandler(filters.ALL, debug_update))
 
-# Run polling with a restart loop
 while True:
     try:
         loop = asyncio.new_event_loop()
@@ -79,4 +74,4 @@ while True:
     except Exception as e:
         logger.error(f"Polling failed, restarting: {str(e)}")
         loop.close()
-        asyncio.sleep(5)  # Wait 5 seconds before restarting
+        asyncio.sleep(5)
