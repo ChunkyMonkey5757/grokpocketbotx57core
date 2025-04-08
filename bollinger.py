@@ -1,11 +1,11 @@
 # bollinger.py
 import pandas as pd
 import logging
-from .indicator_base import IndicatorBase
+import indicator_base  # Changed from relative to absolute import
 
 logger = logging.getLogger('pocketbotx57.indicators.bollinger')
 
-class BollingerBandsStrategy(IndicatorBase):
+class BollingerBandsStrategy(indicator_base.IndicatorBase):
     def __init__(self):
         self.period = 20
         self.std_dev = 1.5
