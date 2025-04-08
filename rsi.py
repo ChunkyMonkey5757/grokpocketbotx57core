@@ -1,7 +1,7 @@
 # rsi.py
 import pandas as pd
 import logging
-import indicator_base  # Changed from relative to absolute import
+import indicator_base
 
 logger = logging.getLogger('pocketbotx57.indicators.rsi')
 
@@ -22,6 +22,10 @@ class RSIStrategy(indicator_base.IndicatorBase):
         rs = gain / loss
         rsi = 100 - (100 / (1 + rs))
         latest_rsi = rsi.iloc[-1]
+
+        if pd.isna(latest_rsi):
+            logger.warning(f"RSI calculation resulted in NaN for {asset}")
+            return {}
 
         logger.info(f"RSI for {asset}: {latest_rsi:.2f}")
 
