@@ -1,11 +1,11 @@
 # macd.py
 import pandas as pd
 import logging
-from .indicator_base import IndicatorBase
+import indicator_base  # Changed from relative to absolute import
 
 logger = logging.getLogger('pocketbotx57.indicators.macd')
 
-class MACDStrategy(IndicatorBase):
+class MACDStrategy(indicator_base.IndicatorBase):
     def __init__(self):
         self.fast_period = 12
         self.slow_period = 26
