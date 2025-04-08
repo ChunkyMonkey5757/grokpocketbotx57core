@@ -1,4 +1,3 @@
-# engine.py
 import asyncio
 from datetime import datetime
 import pandas as pd
@@ -7,9 +6,9 @@ from typing import Dict, Optional
 import logging
 import random
 
-import rsi  # Changed from relative to absolute import
-import macd  # Changed from relative to absolute import
-import bollinger  # Changed from relative to absolute import
+import rsi
+import macd
+import bollinger
 
 logger = logging.getLogger('pocketbotx57.signal_engine')
 
@@ -22,7 +21,7 @@ class SignalEngine:
             'bollinger': bollinger.BollingerBandsStrategy()
         }
         self.weights = {'rsi': 0.15, 'macd': 0.20, 'bollinger': 0.15}
-        self.min_confidence = 0.5
+        self.min_confidence = 0.1  # Lowered from 0.5 to 0.1
         self.cooldown_period = self.config.get('cooldown_period', 30)
         self.last_signal_time = {}
         self.signal_history = []
@@ -44,6 +43,7 @@ class SignalEngine:
         if signal and signal['confidence'] > self.min_confidence and random.random() < signal['confidence']:
             signal['asset'] = asset
             signal['timestamp'] = datetime.now().isoformat()
+            signal['id'] = len(self.signal_history) + 1  # Add a unique signal ID
             self.last_signal_time[asset] = current_time
             self.signal_history.append(signal)
             logger.info(f"Signal for {asset}: {signal['action']} ({signal['confidence']:.2%})")
@@ -77,7 +77,13 @@ class SignalEngine:
         elif sell_score > buy_score:
             action, confidence = 'SELL', sell_score
         else:
-            return None
+            # Break tie by choosing the indicator with the highest confidence
+            max_confidence_signal = max(valid_signals.items(), key=lambda x: x[1]['confidence'], default=(None, {}))
+            if max_confidence_signal[0] is None:
+                return None
+            action = max_confidence_signal[1]['action']
+            confidence = max_confidence_signal[1]['confidence']
+            valid_signals = {max_confidence_signal[0]: max_confidence_signal[1]}
 
         return {
             'action': action,
