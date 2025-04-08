@@ -1,11 +1,11 @@
 # rsi.py
 import pandas as pd
 import logging
-from .indicator_base import IndicatorBase
+import indicator_base  # Changed from relative to absolute import
 
 logger = logging.getLogger('pocketbotx57.indicators.rsi')
 
-class RSIStrategy(IndicatorBase):
+class RSIStrategy(indicator_base.IndicatorBase):
     def __init__(self):
         self.period = 14
         self.overbought = 70
