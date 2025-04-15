@@ -20,8 +20,8 @@ class SignalEngine:
             'macd': macd.MACDStrategy(),
             'bollinger': bollinger.BollingerBandsStrategy()
         }
-        self.weights = {'rsi': 0.15, 'macd': 0.20, 'bollinger': 0.15}
-        self.min_confidence = 0.1  # Lowered from 0.5 to 0.1
+        self.weights = {'rsi': 0.3, 'macd': 0.4, 'bollinger': 0.3}  # Adjusted weights
+        self.min_confidence = 0.1
         self.cooldown_period = self.config.get('cooldown_period', 30)
         self.last_signal_time = {}
         self.signal_history = []
@@ -40,10 +40,10 @@ class SignalEngine:
         signals = await self._generate_indicator_signals(asset, data)
         signal = self._combine_indicator_signals(signals)
 
-        if signal and signal['confidence'] > self.min_confidence and random.random() < signal['confidence']:
+        if signal:
             signal['asset'] = asset
             signal['timestamp'] = datetime.now().isoformat()
-            signal['id'] = len(self.signal_history) + 1  # Add a unique signal ID
+            signal['id'] = len(self.signal_history) + 1
             self.last_signal_time[asset] = current_time
             self.signal_history.append(signal)
             logger.info(f"Signal for {asset}: {signal['action']} ({signal['confidence']:.2%})")
@@ -77,7 +77,7 @@ class SignalEngine:
         elif sell_score > buy_score:
             action, confidence = 'SELL', sell_score
         else:
-            # Break tie by choosing the indicator with the highest confidence
+            # Fallback: Use the indicator with the highest confidence
             max_confidence_signal = max(valid_signals.items(), key=lambda x: x[1]['confidence'], default=(None, {}))
             if max_confidence_signal[0] is None:
                 return None
@@ -108,7 +108,7 @@ class SignalEngine:
 
         total = sum(self.weights.values())
         for k in self.weights:
-            self.weights[k] = total / 0.5
+            self.weights[k] = total / 1.0  # Adjusted to normalize weights
 
         logger.info(f"Feedback processed for {signal_id}: {'win' if outcome else 'loss'}, weights: {self.weights}")
 
