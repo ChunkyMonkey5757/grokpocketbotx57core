@@ -7,6 +7,7 @@ from config import TELEGRAM_BOT_TOKEN
 import ccxt.async_support as ccxt
 import pandas as pd
 import logging
+from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ async def fetch_data(asset="BTC/USD"):
     exchanges = [ccxt.kraken(), ccxt.binance()]
     for exchange in exchanges:
         try:
-            ohlcv = await exchange.fetch_ohlcv(asset, timeframe='5m', limit=100)  # Changed to 5m timeframe
+            ohlcv = await exchange.fetch_ohlcv(asset, timeframe='5m', limit=100)
             await exchange.close()
             return pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         except Exception as e:
@@ -34,17 +35,27 @@ async def start_command(update, context):
 
 async def signal_command(update, context):
     logger.info("Received /signal command")
-    data = await fetch_data()
+    asset = "BTC/USD"  # Define the asset here
+    data = await fetch_data(asset)
     if data is None:
         logger.error("Failed to fetch market data")
         await context.bot.send_message(chat_id=update.effective_chat.id, text="Failed to fetch market data. Try again later.")
         return
     logger.info("Fetched market data successfully")
-    signal = await engine.process_market_data("BTC/USD", data)
+
+    # Send warning message with the crypto pair
+    await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Preparing signal for {asset}... Please select the pair on Pocket Options.")
+    
+    # Wait 5 seconds to allow user to select the pair
+    await asyncio.sleep(5)
+
+    signal = await engine.process_market_data(asset, data)
     if signal:
-        price = data['close'].iloc[-1]
-        msg = engine.format_signal_message(signal, price)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode='Markdown')
+        # Calculate the exact start time (current time + 5 seconds for user to prepare)
+        start_time = datetime.now() + timedelta(seconds=5)
+        signal['start_time'] = start_time.strftime("%H:%M:%S")
+        msg = engine.format_signal_message(signal)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
     else:
         logger.info("No signal generated")
         await context.bot.send_message(chat_id=update.effective_chat.id, text="No signal generated.")
