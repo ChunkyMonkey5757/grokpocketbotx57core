@@ -20,7 +20,7 @@ class SignalEngine:
             'macd': macd.MACDStrategy(),
             'bollinger': bollinger.BollingerBandsStrategy()
         }
-        self.weights = {'rsi': 0.3, 'macd': 0.4, 'bollinger': 0.3}  # Adjusted weights
+        self.weights = {'rsi': 0.3, 'macd': 0.4, 'bollinger': 0.3}
         self.min_confidence = 0.1
         self.cooldown_period = self.config.get('cooldown_period', 30)
         self.last_signal_time = {}
@@ -44,6 +44,7 @@ class SignalEngine:
             signal['asset'] = asset
             signal['timestamp'] = datetime.now().isoformat()
             signal['id'] = len(self.signal_history) + 1
+            signal['trade_duration'] = 5  # Add trade duration (in minutes) for how long the trade should last
             self.last_signal_time[asset] = current_time
             self.signal_history.append(signal)
             logger.info(f"Signal for {asset}: {signal['action']} ({signal['confidence']:.2%})")
@@ -77,7 +78,6 @@ class SignalEngine:
         elif sell_score > buy_score:
             action, confidence = 'SELL', sell_score
         else:
-            # Fallback: Use the indicator with the highest confidence
             max_confidence_signal = max(valid_signals.items(), key=lambda x: x[1]['confidence'], default=(None, {}))
             if max_confidence_signal[0] is None:
                 return None
@@ -85,10 +85,14 @@ class SignalEngine:
             confidence = max_confidence_signal[1]['confidence']
             valid_signals = {max_confidence_signal[0]: max_confidence_signal[1]}
 
+        num_contributors = len(valid_signals)
+        if num_contributors > 0:
+            confidence = confidence * (1.0 / sum(self.weights[k] for k in valid_signals))
+
         return {
             'action': action,
             'confidence': confidence,
-            'duration': max(v.get('duration', 5) for v in valid_signals.values()),
+            'duration': max(v.get('duration', 5) for v in valid_signals.values()),  # Entry window
             'indicators': {k: v['indicators'] for k, v in valid_signals.items()},
             'contributing_strategies': list(valid_signals.keys())
         }
@@ -108,18 +112,18 @@ class SignalEngine:
 
         total = sum(self.weights.values())
         for k in self.weights:
-            self.weights[k] = total / 1.0  # Adjusted to normalize weights
+            self.weights[k] = total / 1.0
 
         logger.info(f"Feedback processed for {signal_id}: {'win' if outcome else 'loss'}, weights: {self.weights}")
 
-    def format_signal_message(self, signal: Dict, price: float) -> str:
+    def format_signal_message(self, signal: Dict) -> str:
         emoji = "🟢" if signal['action'] == 'BUY' else "🔴"
         return (
             f"{emoji}\n"
-            f"**{signal['action']} Signal** at\n"
-            f"**Price: ${price:.2f}**\n"
+            f"**{signal['action']} Signal for {signal['asset']}**\n"
             f"**Confidence: {signal['confidence']:.1%}**\n"
-            f"**Duration: {signal['duration']}m**\n"
-            f"**Signal ID: {signal['id']}**\n"
+            f"**Begin Trade At: {signal['start_time']}**\n"
+            f"**Entry Window: {signal['duration']}m (You have {signal['duration']} minutes to enter the trade)**\n"
+            f"**Trade Duration: {signal['trade_duration']}m (Set the trade to expire in {signal['trade_duration']} minutes)**\n"
             f"**TRADE NOW!**"
         )
