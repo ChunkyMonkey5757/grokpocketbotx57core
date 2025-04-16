@@ -8,8 +8,8 @@ logger = logging.getLogger('pocketbotx57.indicators.rsi')
 class RSIStrategy(indicator_base.IndicatorBase):
     def __init__(self):
         self.period = 14
-        self.overbought = 65  # Lowered from 70
-        self.oversold = 35    # Raised from 30
+        self.overbought = 55  # Lowered from 60
+        self.oversold = 45    # Raised from 40
         logger.info(f"RSI Strategy initialized with period={self.period}, thresholds={self.oversold}/{self.overbought}")
 
     async def generate_signal(self, asset: str, data: pd.DataFrame):
