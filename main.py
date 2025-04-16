@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 async def fetch_data(exchange, asset: str):
     try:
         ohlcv = await exchange.fetch_ohlcv(asset, timeframe='5m', limit=100)
-        await exchange.close()
         return pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     except Exception as e:
         logger.error(f"Failed to fetch data for {asset} from {exchange.id}: {str(e)}")
-        await exchange.close()
         return None
+    finally:
+        await exchange.close()  # Ensure session closes
 
 engine = SignalEngine()
 
@@ -34,11 +34,13 @@ async def start_command(update, context):
 async def signal_command(update, context):
     logger.info("Received /signal command")
     
-    # List of top tokens to scan (based on Pocket Options popular pairs)
-    assets = ["BTC/USD", "ETH/USD", "LTC/USD", "XRP/USD", "ADA/USD"]
-    exchange = ccxt.binance()
+    # Full Pocket Options OTC token list as USDT pairs
+    assets = ["AVAX/USDT", "BTC/USDT", "BNB/USDT", "ETH/USDT", "MATIC/USDT", 
+              "LINK/USDT", "LTC/USDT", "TRX/USDT", "DOT/USDT", "DOGE/USDT", 
+              "SOL/USDT", "TON/USDT", "DASH/USDT"]
+    exchange = ccxt.kucoin()  # Using KuCoin for max flexibility
     
-    # Fetch data and generate signals for each asset
+    # Fetch data and generate signals
     best_signal = None
     best_confidence = 0
     best_asset = None
@@ -46,7 +48,7 @@ async def signal_command(update, context):
 
     for asset in assets:
         data = await fetch_data(exchange, asset)
-        if data is None:
+        if data is None or len(data) < 50:
             continue
         signal = await engine.process_market_data(asset, data)
         if signal and signal['confidence'] > best_confidence:
@@ -60,22 +62,20 @@ async def signal_command(update, context):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="No signal generated for any asset.")
         return
 
-    # Calculate ATR and determine trade duration
+    # Calculate ATR and trade duration
     atr = market_analysis.calculate_atr(best_data)
     trade_duration = market_analysis.determine_trade_duration(atr)
     best_signal['trade_duration'] = trade_duration
 
-    # Send warning message with the crypto pair
+    # Send warning and wait
     await context.bot.send_message(chat_id=update.effective_chat.id, text=f"Preparing signal for {best_asset}... Please select the pair on Pocket Options.")
-    
-    # Wait 5 seconds to allow user to select the pair
     await asyncio.sleep(5)
 
-    # Calculate the exact start time
+    # Set start time
     start_time = datetime.now() + timedelta(seconds=5)
     best_signal['start_time'] = start_time.strftime("%H:%M:%S")
     
-    # Send the signal message
+    # Send signal
     msg = engine.format_signal_message(best_signal)
     await context.bot.send_message(chat_id=update.effective_chat.id, text=msg)
 
