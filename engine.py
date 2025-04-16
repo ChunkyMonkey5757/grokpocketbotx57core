@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, Optional
 import logging
-import random
+import uuid
 
 import rsi
 import macd
@@ -14,6 +14,7 @@ logger = logging.getLogger('pocketbotx57.signal_engine')
 
 class SignalEngine:
     def __init__(self, config: Dict = None):
+        """Initialize the SignalEngine."""
         self.config = config or {}
         self.indicators = {
             'rsi': rsi.RSIStrategy(),
@@ -29,13 +30,13 @@ class SignalEngine:
         logger.info("Signal Engine (MVP + AI Lite) initialized")
 
     async def process_market_data(self, asset: str, data: pd.DataFrame) -> Optional[Dict]:
+        """Process market data to generate a trading signal."""
         current_time = datetime.now().timestamp()
         if asset in self.last_signal_time and (current_time - self.last_signal_time[asset]) < self.cooldown_period:
             return None
 
         if len(data) < 50:
-            logger.warning(f"Insufficient data for Ellipsis in enumerate
-{asset}: {len(data)}")
+            logger.warning(f"Insufficient data for {asset}: {len(data)}")
             return None
 
         signals = await self._generate_indicator_signals(asset, data)
@@ -44,6 +45,9 @@ class SignalEngine:
         if signal:
             signal['asset'] = asset
             signal['timestamp'] = datetime.now().isoformat()
+            signal['id'] = str(uuid.uuid4())  # Unique ID for each signal
+            signal['start_time'] = datetime.now().isoformat()  # Added for format_signal_message
+            signal['trade_duration'] = 15  # Default trade duration in minutes (adjust as needed)
             self.last_signal_time[asset] = current_time
             self.signal_history.append(signal)
             logger.info(f"Signal for {asset}: {signal['action']} ({signal['confidence']:.2%})")
@@ -51,12 +55,14 @@ class SignalEngine:
         return None
 
     async def _generate_indicator_signals(self, asset: str, data: pd.DataFrame) -> Dict:
+        """Generate signals from all indicators asynchronously."""
         tasks = [self._run_indicator(name, ind, asset, data) for name, ind in self.indicators.items()]
         results = dict(await asyncio.gather(*tasks))
         logger.info(f"Indicator signals for {asset}: {results}")
         return results
 
     async def _run_indicator(self, name: str, indicator, asset: str, data: pd.DataFrame):
+        """Run a single indicator and handle exceptions."""
         try:
             signal = await indicator.generate_signal(asset, data)
             return (name, signal or {})
@@ -65,6 +71,7 @@ class SignalEngine:
             return (name, {})
 
     def _combine_indicator_signals(self, signals: Dict) -> Optional[Dict]:
+        """Combine signals from indicators into a single trading signal."""
         valid_signals = {k: v for k, v in signals.items() if v and 'action' in v}
         if not valid_signals:
             return None
@@ -97,6 +104,7 @@ class SignalEngine:
         }
 
     async def process_feedback(self, signal_id: str, outcome: bool):
+        """Process feedback to adjust strategy weights."""
         signal = next((s for s in self.signal_history if str(s['id']) == signal_id), None)
         if not signal:
             logger.warning(f"Signal {signal_id} not found")
@@ -116,19 +124,21 @@ class SignalEngine:
         logger.info(f"Feedback processed for {signal_id}: {'win' if outcome else 'loss'}, weights: {self.weights}")
 
     def format_signal_message(self, signal: Dict) -> str:
+        """Format a signal into a Telegram-compatible message."""
         emoji = "🟢" if signal['action'] == 'BUY' else "🔴"
         logic_explanation = self._generate_logic_explanation(signal)
         return (
             f"{emoji} **{signal['action']} Signal for {signal['asset']}**\n"
             f"**Confidence:** {signal['confidence']:.1%}\n"
-            f"**Begin Trade At:** {signal['start_time']}\n"
+            f"**Begin Trade At:** {signal.get('start_time', 'N/A')}\n"
             f"**Entry Window:** {signal['duration']} minutes\n"
-            f"**Trade Duration:** {signal['trade_duration']} minutes\n"
+            f"**Trade Duration:** {signal.get('trade_duration', 'N/A')} minutes\n"
             f"**Logic:** {logic_explanation}\n"
             f"**TRADE NOW!**"
         )
 
     def _generate_logic_explanation(self, signal: Dict) -> str:
+        """Generate a human-readable explanation of the signal logic."""
         contributing = signal['contributing_strategies']
         indicators = signal['indicators']
         explanations = []
