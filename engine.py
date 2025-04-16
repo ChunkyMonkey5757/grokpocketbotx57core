@@ -34,7 +34,8 @@ class SignalEngine:
             return None
 
         if len(data) < 50:
-            logger.warning(f"Insufficient data for {asset}: {len(data)}")
+            logger.warning(f"Insufficient data for Ellipsis in enumerate
+{asset}: {len(data)}")
             return None
 
         signals = await self._generate_indicator_signals(asset, data)
@@ -43,8 +44,6 @@ class SignalEngine:
         if signal:
             signal['asset'] = asset
             signal['timestamp'] = datetime.now().isoformat()
-            signal['id'] = len(self.signal_history) + 1
-            signal['trade_duration'] = 5  # Add trade duration (in minutes) for how long the trade should last
             self.last_signal_time[asset] = current_time
             self.signal_history.append(signal)
             logger.info(f"Signal for {asset}: {signal['action']} ({signal['confidence']:.2%})")
@@ -92,7 +91,7 @@ class SignalEngine:
         return {
             'action': action,
             'confidence': confidence,
-            'duration': max(v.get('duration', 5) for v in valid_signals.values()),  # Entry window
+            'duration': max(v.get('duration', 5) for v in valid_signals.values()),
             'indicators': {k: v['indicators'] for k, v in valid_signals.items()},
             'contributing_strategies': list(valid_signals.keys())
         }
@@ -118,12 +117,32 @@ class SignalEngine:
 
     def format_signal_message(self, signal: Dict) -> str:
         emoji = "🟢" if signal['action'] == 'BUY' else "🔴"
+        logic_explanation = self._generate_logic_explanation(signal)
         return (
-            f"{emoji}\n"
-            f"**{signal['action']} Signal for {signal['asset']}**\n"
-            f"**Confidence: {signal['confidence']:.1%}**\n"
-            f"**Begin Trade At: {signal['start_time']}**\n"
-            f"**Entry Window: {signal['duration']}m (You have {signal['duration']} minutes to enter the trade)**\n"
-            f"**Trade Duration: {signal['trade_duration']}m (Set the trade to expire in {signal['trade_duration']} minutes)**\n"
+            f"{emoji} **{signal['action']} Signal for {signal['asset']}**\n"
+            f"**Confidence:** {signal['confidence']:.1%}\n"
+            f"**Begin Trade At:** {signal['start_time']}\n"
+            f"**Entry Window:** {signal['duration']} minutes\n"
+            f"**Trade Duration:** {signal['trade_duration']} minutes\n"
+            f"**Logic:** {logic_explanation}\n"
             f"**TRADE NOW!**"
         )
+
+    def _generate_logic_explanation(self, signal: Dict) -> str:
+        contributing = signal['contributing_strategies']
+        indicators = signal['indicators']
+        explanations = []
+        for strategy in contributing:
+            if strategy == 'rsi':
+                rsi_value = indicators[strategy]['rsi']
+                explanations.append(f"RSI ({rsi_value:.2f}) indicates {'oversold' if signal['action'] == 'BUY' else 'overbought'} conditions")
+            elif strategy == 'macd':
+                macd_value = indicators[strategy]['macd']
+                signal_value = indicators[strategy]['signal']
+                explanations.append(f"MACD ({macd_value:.2f}) crossed {'above' if signal['action'] == 'BUY' else 'below'} signal line ({signal_value:.2f})")
+            elif strategy == 'bollinger':
+                price = indicators[strategy]['price']
+                upper = indicators[strategy]['upper']
+                lower = indicators[strategy]['lower']
+                explanations.append(f"Price ({price:.2f}) crossed {'below lower band' if signal['action'] == 'BUY' else 'above upper band'} (Upper: {upper:.2f}, Lower: {lower:.2f})")
+        return "; ".join(explanations) if explanations else "Based on combined indicator analysis"
